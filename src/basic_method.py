@@ -1,118 +1,76 @@
 
-import sqlite3
-# import mysql.connector
+from connection import get_connection
 
-class DBConnection():
-
-    def __init__(self, **kwargs):
-        if kwargs.get("adapter") == "psycorg2":
-            try:
-                connection_str = "dbname=" + kwargs.get("dbname") + " user=" + kwargs.get("user") + "" \
-                                 " password=" + kwargs.get("password")
-                self.connection = psycopg2.connect(connection_str)
-                self.cursor = self.connection.cursor()
-            except ValueError:
-                print("This is not valid parameters")
-                raise
-        if kwargs.get("adapter") == "mysql_connector":
-            try:
-                connection_str = "dbname=" + kwargs.get("dbname") + ", user=" + kwargs.get("user") + "" \
-                                 ", password=" + kwargs.get("password")
-                self.connection = connection.MySQLConnection(connection_str)
-                self.cursor = self.connection.cursor()
-            except ValueError:
-                print("This is not valid parameters")
-                raise
-        else:
-            try:
-                self.connection = sqlite3.connect(kwargs.get("dbname"))
-                self.cursor = self.connection.cursor()
-            except ValueError:
-                print("This is not valid parameters")
-                raise
-
-    def __del__(self):
-        self.cursor.close()
-        self.connection.close()
 
 class Model():
 
     @classmethod
     def insert(cls, **kwargs):
-        db = DBConnection(dbname="Test_db.sqlite")
-        name_params_str = ''
-        value_str = ''
+        db = get_connection()
+        connection = db.connection
+        name_params_list = []
+        value_list = []
         for parameter_name, value in kwargs.items():
             if isinstance(value, str):
                 value = "'" + str(value) + "'"
-            name_params_str += str(parameter_name) + ","
-            value_str += str(value) + ","
-        value_str = value_str[:-1]
-        name_params_str = name_params_str[:-1]
-        db.cursor.execute("INSERT INTO "+ cls.__name__ + " (" + name_params_str + ") VALUES (" + value_str + ")")
-        db.connection.commit()
+            name_params_list.append(str(parameter_name))
+            value_list.append(str(value))
+        value_str = ','.join(value_list)
+        name_params_str = ','.join(name_params_list)
+        db.execute("INSERT INTO " + cls.__name__ + " (" + name_params_str + ") VALUES (" + value_str + ")")
+        connection.commit()
 
     @classmethod
     def select(cls,**kwargs):
-        db = DBConnection(dbname="Test_db.sqlite")
+        db = get_connection()
+        connection = db.connection
         if not kwargs:
-            db.cursor.execute("SELECT * from " + cls.__name__)
-
+            db.execute("SELECT * from " + cls.__name__)
         if kwargs:
             query_string = "SELECT * from " + cls.__name__ + " WHERE "
             for argument_name, argument_value in kwargs.items():
-
+                filter_column_name, filter_method = argument_name.split("__")
                 filter_dict = {
-                    "__startwith": argument_name[:-len("__startwith")] + " LIKE '" + str(argument_value) + "%'", # left side of argument
-                    "__gt": argument_name[:-len("__gt")] + " > " + str(argument_value),
-                    "__lt": argument_name[:-len("__lt")] + " < " + str(argument_value),
-                    "__gte": argument_name[:-len("__gte")] + " >= " + str(argument_value),
-                    "__lte": argument_name[:-len("__lte")] + " <= " + str(argument_value)
+                    "startwith": filter_column_name + " LIKE '" + str(argument_value) + "%'", # left side of argument
+                    "gt": filter_column_name + " > " + str(argument_value),
+                    "lt": filter_column_name + " < " + str(argument_value),
+                    "gte": filter_column_name + " >= " + str(argument_value),
+                    "lte": filter_column_name + " <= " + str(argument_value)
                 }
-
-                if argument_name[-len("__startwith"):] == "__startwith":
-                    query_string += filter_dict[argument_name[-len("__startwith"):]] #right side  of argument
-                elif argument_name[-len("__gt"):] == "__gt":
-                    query_string += filter_dict[argument_name[-len("__gt"):]]  # right side  of argument
-                elif argument_name[-len("__lt"):] == "__lt":
-                    query_string += filter_dict[argument_name[-len("__lt"):]]  # right side  of argument
-                elif argument_name[-len("__gte"):] == "__gte":
-                    query_string += filter_dict[argument_name[-len("__gte"):]]  # right side  of argument
-                elif argument_name[-len("__lte"):] == "__lte":
-                    query_string += filter_dict[argument_name[-len("__lte"):]]  # right side  of argument
-                else:
-                    print("This is not valid parameter for filter")
+                try:
+                    query_string += filter_dict[filter_method] #right side  of argument
+                except:
+                    print("This is not valid parameters for filter")
                     raise
-
                 query_string += " and "
 
             query_string = query_string[:-4]
             try:
-                db.cursor.execute(query_string)
+                db.execute(query_string)
             except:
                 print("This is not valid name of column")
                 raise
 
-        data = db.cursor.fetchall()
-
-        db.cursor.close()
+        data = db.fetchall()
         return data
 
     @classmethod
     def update(cls, id=0, **kwargs):
-        db = DBConnection(dbname="Test_db.sqlite")
+        db = get_connection()
+        connection = db.connection
         value_str = ''
         for parameter_name, value in kwargs.items():
             if isinstance(value, str):
                 value = "'" + str(value) + "'"
             value_str += str(parameter_name) + "=" + str(value) + ","
         value_str = value_str[:-1]
-        db.cursor.execute("UPDATE " + cls.__name__ + " SET " + value_str + " WHERE id=" + str(id))
-        db.connection.commit()
-        db.cursor.close()
+        db.execute("UPDATE " + cls.__name__ + " SET " + value_str + " WHERE id=" + str(id))
+        connection.commit()
+
 
     @classmethod
     def delete(cls, id):
-        db = DBConnection(dbname="Test_db.sqlite")
-        db.cursor.execute("DELETE FROM " + cls.__name__ + " WHERE id=" + str(id))
-        db.connection.commit()
+        db = get_connection()
+        connection = db.connection
+        db.execute("DELETE FROM " + cls.__name__ + " WHERE id=" + str(id))
+        connection.commit()
