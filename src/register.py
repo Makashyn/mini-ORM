@@ -1,28 +1,29 @@
 
 from tables import Table1
+from basic_method import DBConnection
 
 import sqlite3
 
 
-class TablesRegister():
+class TablesRegister(DBConnection):
 
 
     def __init__(self):
-        self.conn = sqlite3.connect('Test_db.sqlite')
-        self.cursor = self.conn.cursor()
+        DBConnection.__init__(self, dbname="Test_db.sqlite")
+        self.cursor = self.connection.cursor()
 
     def add(self, table):
         self.data = {}
-        for i, j in table.__dict__.items():
-            if i[0] != '_':
-                self.data[i] = j
+        for parameter_name, value in table.__dict__.items():
+            if parameter_name[0] != '_':
+                self.data[parameter_name] = value
         self.table_name = table.__name__
 
     def migrate(self):
         self.cursor.execute("DROP TABLE IF EXISTS " + self.table_name)
         sql_query = 'CREATE TABLE ' + self.table_name + ' (id int auto_increment primary key'
-        for i,j in self.data.items():
-            sql_query += "," + i + " " + str(j)
+        for parameter_name, value in self.data.items():
+            sql_query += "," + parameter_name + " " + str(value)
         sql_query += ")"
         self.cursor.execute(sql_query)
 

@@ -11,5 +11,5 @@ class Table1(Model):
         return str(self.name) + "  " + str(self.age)
 
 
-
-
+Table1.insert(name="lolka", age="11")
+print(Table1.select())
