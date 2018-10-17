@@ -10,6 +10,7 @@ class DBConnection():
                 connection_str = "dbname=" + kwargs.get("dbname") + " user=" + kwargs.get("user") + "" \
                                  " password=" + kwargs.get("password")
                 self.connection = psycopg2.connect(connection_str)
+                self.cursor = self.connection.cursor()
             except ValueError:
                 print("This is not valid parameters")
                 raise
@@ -18,22 +19,27 @@ class DBConnection():
                 connection_str = "dbname=" + kwargs.get("dbname") + ", user=" + kwargs.get("user") + "" \
                                  ", password=" + kwargs.get("password")
                 self.connection = connection.MySQLConnection(connection_str)
+                self.cursor = self.connection.cursor()
             except ValueError:
                 print("This is not valid parameters")
                 raise
         else:
             try:
                 self.connection = sqlite3.connect(kwargs.get("dbname"))
+                self.cursor = self.connection.cursor()
             except ValueError:
                 print("This is not valid parameters")
                 raise
+
+    def __del__(self):
+        self.cursor.close()
+        self.connection.close()
 
 class Model():
 
     @classmethod
     def insert(cls, **kwargs):
-        conn = sqlite3.connect('Test_db.sqlite')
-        cursor = conn.cursor()
+        db = DBConnection(dbname="Test_db.sqlite")
         name_params_str = ''
         value_str = ''
         for parameter_name, value in kwargs.items():
@@ -43,18 +49,14 @@ class Model():
             value_str += str(value) + ","
         value_str = value_str[:-1]
         name_params_str = name_params_str[:-1]
-        cursor.execute("INSERT INTO "+ cls.__name__ + " (" + name_params_str + ") VALUES (" + value_str + ")")
-        conn.commit()
-        cursor.close()
-        conn.close()
+        db.cursor.execute("INSERT INTO "+ cls.__name__ + " (" + name_params_str + ") VALUES (" + value_str + ")")
+        db.connection.commit()
 
     @classmethod
     def select(cls,**kwargs):
-        conn = sqlite3.connect('Test_db.sqlite')
-        cursor = conn.cursor()
-
+        db = DBConnection(dbname="Test_db.sqlite")
         if not kwargs:
-            cursor.execute("SELECT * from " + cls.__name__)
+            db.cursor.execute("SELECT * from " + cls.__name__)
 
         if kwargs:
             query_string = "SELECT * from " + cls.__name__ + " WHERE "
@@ -86,39 +88,31 @@ class Model():
 
             query_string = query_string[:-4]
             try:
-                cursor.execute(query_string)
+                db.cursor.execute(query_string)
             except:
                 print("This is not valid name of column")
                 raise
 
-        data = cursor.fetchall()
+        data = db.cursor.fetchall()
 
-        cursor.close()
-        conn.close()
+        db.cursor.close()
         return data
 
     @classmethod
     def update(cls, id=0, **kwargs):
-        conn = sqlite3.connect('Test_db.sqlite')
-        cursor = conn.cursor()
+        db = DBConnection(dbname="Test_db.sqlite")
         value_str = ''
         for parameter_name, value in kwargs.items():
             if isinstance(value, str):
                 value = "'" + str(value) + "'"
             value_str += str(parameter_name) + "=" + str(value) + ","
         value_str = value_str[:-1]
-        cursor.execute("UPDATE " + cls.__name__ + " SET " + value_str + " WHERE id=" + str(id))
-        conn.commit()
-        cursor.close()
-        conn.close()
+        db.cursor.execute("UPDATE " + cls.__name__ + " SET " + value_str + " WHERE id=" + str(id))
+        db.connection.commit()
+        db.cursor.close()
 
     @classmethod
     def delete(cls, id):
-        conn = sqlite3.connect('Test_db.sqlite')
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM " + cls.__name__ + " WHERE id=" + str(id))
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-
+        db = DBConnection(dbname="Test_db.sqlite")
+        db.cursor.execute("DELETE FROM " + cls.__name__ + " WHERE id=" + str(id))
+        db.connection.commit()
